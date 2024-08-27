@@ -29,7 +29,7 @@ class App {
   //  Properties   //
 
   originBoard;
-  bindTurnClick;
+  bindTurnClick = this.turnClick.bind(this);
   currPlayer = "bot";
   currTurn = "O";
   flag = true;
@@ -69,7 +69,7 @@ class App {
   // Initialize every cells empty and create a new board  //
 
   initialize() {
-    this.bindTurnClick = this.turnClick.bind(this);
+    // this.bindTurnClick = this.turnClick.bind(this);
     this.originBoard = Array.from(Array(9).keys());
     for (let i = 0; i < cells.length; i++) {
       cells[i].textContent = "";
@@ -204,7 +204,7 @@ class App {
       endGame.textContent =
         who === huPlayer
           ? `${turnText.textContent} Win`
-          : `${turnText.textContent} Lose`;
+          : `${turnText.textContent} Win`;
   }
 
   //  to make a list with empty places from the current board  //
