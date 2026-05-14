@@ -13,7 +13,6 @@ const aiPlayer = "X";
 const cells = document.querySelectorAll(".cell");
 const endGame = document.querySelector(".end-game");
 
-//  all possible win combination  //
 const winCombos = [
   [0, 1, 2],
   [3, 4, 5],
@@ -26,33 +25,38 @@ const winCombos = [
 ];
 
 class App {
-  //  Properties   //
-
   originBoard;
   bindTurnClick = this.turnClick.bind(this);
   currPlayer = "bot";
   currTurn = "O";
   flag = true;
-
-  //   constructor    //
+  isBotThinking = false; // New flag to prevent double clicking
 
   constructor() {
     this.resetGame();
   }
 
-  //  Methods   //
-
-  //  reset all things  //
-
   resetGame() {
     this.initialize();
     buttonBot.addEventListener(
       "click",
-      this.addButtonClasses.bind(this, buttonBot, buttonfriend, "friend", "bot")
+      this.addButtonClasses.bind(
+        this,
+        buttonBot,
+        buttonfriend,
+        "friend",
+        "bot",
+      ),
     );
     buttonfriend.addEventListener(
       "click",
-      this.addButtonClasses.bind(this, buttonfriend, buttonBot, "bot", "friend")
+      this.addButtonClasses.bind(
+        this,
+        buttonfriend,
+        buttonBot,
+        "bot",
+        "friend",
+      ),
     );
     buttonReset.addEventListener("click", this.startGame.bind(this));
   }
@@ -66,10 +70,7 @@ class App {
     this.startGame();
   }
 
-  // Initialize every cells empty and create a new board  //
-
   initialize() {
-    // this.bindTurnClick = this.turnClick.bind(this);
     this.originBoard = Array.from(Array(9).keys());
     for (let i = 0; i < cells.length; i++) {
       cells[i].textContent = "";
@@ -92,150 +93,126 @@ class App {
     }
   }
 
-  //  Main code start from here //
-
   startGame() {
     this.flag = true;
+    this.isBotThinking = false;
     endGame.classList.add("hidden");
-    // turnO.classList.add("turn--active");
-    // turnX.classList.remove("turn--active");
     this.turnActive(turnO);
-
     this.initialize();
   }
 
-  //  when user click a cell turnClick willbe called  //
-
   turnClick(square) {
-    if (this.currPlayer === "bot") {
-      this.turn(square.target.id, huPlayer);
+    const squareId = square.target.id;
 
-      if (!this.checkTie()) {
+    // BUG FIX: Prevent click if bot is thinking or cell is occupied
+    if (this.isBotThinking || typeof this.originBoard[squareId] !== "number") {
+      return;
+    }
+
+    if (this.currPlayer === "bot") {
+      // Human move
+      this.turn(squareId, huPlayer);
+
+      // Only let bot move if game isn't over
+      if (!this.checkWin(this.originBoard, huPlayer) && !this.checkTie()) {
+        this.isBotThinking = true; // Lock the board
+
         setTimeout(() => {
           if (this.flag) {
-            const temp = [0, 2, 4, 6, 8].filter(
-              (el) => el !== +square.target.id
+            // Ensure bot picks from actual empty spots in its opening move
+            const availableOpening = [0, 2, 4, 6, 8].filter(
+              (el) => typeof this.originBoard[el] === "number",
             );
 
-            const randInd = Math.floor(Math.random() * temp.length);
-            this.turn(String(temp[randInd]), aiPlayer);
+            const randInd = Math.floor(Math.random() * availableOpening.length);
+            this.turn(String(availableOpening[randInd]), aiPlayer);
             this.flag = false;
-          } else this.turn(String(this.bestSpot()), aiPlayer);
+          } else {
+            this.turn(String(this.bestSpot()), aiPlayer);
+          }
+          this.isBotThinking = false; // Unlock the board
         }, 1000);
       }
     } else {
-      this.turn(square.target.id, this.currTurn);
+      // Friend Mode
+      this.turn(squareId, this.currTurn);
       this.currTurn = this.currTurn === "O" ? "X" : "O";
     }
   }
 
-  // store the current state of the cell and check for wiining and tieing
-
   turn(squareId, player) {
     this.originBoard[squareId] = player;
-
     document.getElementById(squareId).textContent = player;
-
     cells[squareId].removeEventListener("click", this.bindTurnClick);
 
     let gameWon = this.checkWin(this.originBoard, player);
 
-    if (this.checkTie()) this.declareWiner("Tie");
-
-    if (gameWon) this.gameOver(gameWon);
-
-    if (player === huPlayer) {
-      this.turnActive(turnX);
+    if (gameWon) {
+      this.gameOver(gameWon);
+    } else if (this.checkTie()) {
+      this.declareWiner("Tie");
     }
-    if (player === aiPlayer) {
-      this.turnActive(turnO);
-    }
+
+    if (player === huPlayer) this.turnActive(turnX);
+    if (player === aiPlayer) this.turnActive(turnO);
   }
-
-  //  check for wining  //
-  //  if win then return an object else null  //
 
   checkWin(board, player) {
     let gameWon = null;
-
     for (let i = 0; i < winCombos.length; i++) {
       if (winCombos[i].every((index) => board[index] === player)) {
         gameWon = { index: i, winner: player };
         break;
       }
     }
-
     return gameWon;
   }
 
-  //  check for tie ; return type boolean  //
-
   checkTie() {
-    for (let i = 0; i < 9; i++) {
-      if (typeof this.originBoard[i] === "number") return false;
-    }
-    return true;
+    return this.emptyPlace(this.originBoard).length === 0;
   }
-
-  //  when a player win gameOver funtion willbe called  //
 
   gameOver(gameWon) {
     winCombos[gameWon.index].forEach((el) => {
       cells[el].style.backgroundColor = "#40a578";
     });
-
     this.declareWiner(gameWon.winner);
   }
-
-  //  when a game is finished declareWiner will be called  //
 
   declareWiner(who) {
     for (let i = 0; i < cells.length; i++) {
       cells[i].removeEventListener("click", this.bindTurnClick);
     }
     endGame.classList.remove("hidden");
+
     if (who === "Tie") {
       endGame.textContent = "Tie";
       return;
     }
-    if (this.currPlayer === "bot")
-      endGame.textContent = who === huPlayer ? "You Win" : "You Lose";
-    else
-      endGame.textContent =
-        who === huPlayer
-          ? `${turnText.textContent} Win`
-          : `${turnText.textContent} Win`;
-  }
 
-  //  to make a list with empty places from the current board  //
+    if (this.currPlayer === "bot") {
+      endGame.textContent = who === huPlayer ? "You Win" : "You Lose";
+    } else {
+      endGame.textContent = who === "O" ? "Player 1 Wins" : "Player 2 Wins";
+    }
+  }
 
   emptyPlace(board) {
     return board.filter((s) => typeof s === "number");
   }
 
-  //  select a best index for bot  //
-
   bestSpot() {
     return this.minimax(this.originBoard, aiPlayer).index;
   }
 
-  //  to get the best index for bot calculate all the situation and return a move  //
-
   minimax(newBoard, player) {
     let availableSpot = this.emptyPlace(newBoard);
 
-    //  base cases  //
-
-    if (this.checkWin(newBoard, huPlayer)) {
-      return { score: -10 };
-    } else if (this.checkWin(newBoard, aiPlayer)) {
-      return { score: 20 };
-    } else if (availableSpot.length === 0) return { score: 0 };
-
-    //  to store all the possible moves  //
+    if (this.checkWin(newBoard, huPlayer)) return { score: -10 };
+    if (this.checkWin(newBoard, aiPlayer)) return { score: 20 };
+    if (availableSpot.length === 0) return { score: 0 };
 
     let moves = [];
-
     for (let i = 0; i < availableSpot.length; i++) {
       let move = {};
       move.index = availableSpot[i];
@@ -254,34 +231,25 @@ class App {
     }
 
     let bestMove;
-
-    //  if current player is bot  //
-
     if (player === aiPlayer) {
       let bestScore = -Infinity;
-
       for (let i = 0; i < moves.length; i++) {
-        if (bestScore < moves[i].score) {
+        if (moves[i].score > bestScore) {
           bestScore = moves[i].score;
           bestMove = i;
         }
       }
     } else {
-      //  if current player is human  //
       let bestScore = Infinity;
-
       for (let i = 0; i < moves.length; i++) {
-        if (bestScore > moves[i].score) {
+        if (moves[i].score < bestScore) {
           bestScore = moves[i].score;
           bestMove = i;
         }
       }
     }
-
     return moves[bestMove];
   }
 }
-
-//  creat an object
 
 const app = new App();
